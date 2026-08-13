@@ -1,0 +1,18 @@
+Mage-VL Studio
+Copyright (c) 2026 tokawa-ms
+
+This demo application is licensed under the MIT License. See LICENSE.
+
+This application does not redistribute model weights. Microsoft Mage-VL is a
+separate work and is licensed under the license identified in its model
+repository and model card:
+https://huggingface.co/microsoft/Mage-VL
+
+Third-party dependencies and the container, CUDA, and FFmpeg components retain
+their respective licenses and notices. The MIT License for this application
+does not replace or modify those terms.
+
+Model loading uses trust_remote_code with the pinned Mage-VL revision
+d88b153285f1633a61b2f693c59c8576693af185. This executes third-party model code.
+Users should review that pinned code and its license before running the
+application.

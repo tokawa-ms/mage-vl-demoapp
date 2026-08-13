@@ -1,0 +1,108 @@
+services:
+  model-fetch:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - python
+      - -c
+      - >-
+        from huggingface_hub import snapshot_download;
+        snapshot_download(
+        "microsoft/Mage-VL",
+        revision="d88b153285f1633a61b2f693c59c8576693af185")
+    environment:
+      HF_HOME: ${HF_HOME:-/data/huggingface}
+    volumes:
+      - huggingface-cache:/data/huggingface
+    networks:
+      - model-download
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HF_HOME: ${HF_HOME:-/data/huggingface}
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      MAGE_UPLOAD_DIR: /data/uploads
+      MAGE_RESULT_DIR: /data/results
+      MAGE_WORK_DIR: /data/work
+    volumes:
+      - huggingface-cache:/data/huggingface
+      - mage-uploads:/data/uploads
+      - mage-results:/data/results
+      - mage-work:/data/work
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - app-internal
+    depends_on:
+      model-fetch:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      VITE_API_BASE_URL: http://localhost:${MAGE_API_PORT:-8000}
+    ports:
+      - "${MAGE_WEB_PORT:-5173}:5173"
+      - "${MAGE_API_PORT:-8000}:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/node_modules/.vite
+      - /app/node_modules/.vite-temp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - app-internal
+      - public
+
+volumes:
+  huggingface-cache:
+  mage-uploads:
+  mage-results:
+  mage-work:
+
+networks:
+  app-internal:
+    internal: true
+  model-download:
+  public:
